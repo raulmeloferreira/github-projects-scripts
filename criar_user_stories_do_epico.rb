@@ -17,32 +17,39 @@ end
 
 # ======= FUNÇÕES =======
 
+def executar_comando(cmd_array)
+  puts "🔹 Comando a executar:"
+  puts cmd_array.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
+  puts "-----------------------------------"
+
+  stdout, stderr, status = Open3.capture3(*cmd_array)
+
+  unless status.success?
+    puts "❌ Erro na execução: #{stderr}"
+    exit 1
+  end
+
+  stdout
+end
+
 def criar_issue(titulo, descricao)
   titulo_escapado = titulo.strip.gsub('"', '\"')
-  body_escapado = descricao.gsub('"', '\"').gsub("\n", "\\n") # sem strip no body
+  body_escapado = descricao.gsub('"', '\"').gsub("\n", "\\n")
 
   cmd = [
-    "gh issue create",
-    "--title \"#{titulo_escapado}\"",
-    "--body \"#{body_escapado}\"",
-    "--repo #{REPO}"
+    "gh", "issue", "create",
+    "--title", titulo_escapado,
+    "--body", body_escapado,
+    "--repo", REPO
   ]
 
   if DRY_RUN
-    puts cmd.join(' ')
+    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
     puts "# Depois de criar, pegue o número da issue e continue."
     return nil
-  else
-    puts "🔹 Executando comando:"
-    puts cmd.join(' ')
   end
 
-  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
-
-  unless status.success?
-    puts "❌ Erro ao criar issue: #{stderr}"
-    exit 1
-  end
+  stdout = executar_comando(cmd)
 
   puts stdout
 
@@ -55,49 +62,33 @@ end
 
 def adicionar_ao_projeto(issue_url)
   cmd = [
-    "gh project item-add",
-    "#{PROJECT_ID}",
-    "--url #{issue_url}"
+    "gh", "project", "item-add",
+    PROJECT_ID,
+    "--url", issue_url
   ]
 
   if DRY_RUN
-    puts cmd.join(' ')
+    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
     return
-  else
-    puts "🔹 Executando comando:"
-    puts cmd.join(' ')
   end
 
-  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
-
-  unless status.success?
-    puts "❌ Erro ao adicionar no projeto: #{stderr}"
-    exit 1
-  end
+  executar_comando(cmd)
 end
 
 def vincular_ao_epico(issue_number)
   cmd = [
-    "gh issue edit",
-    "#{issue_number}",
-    "--add-linked-issue #{EPICO_ID}",
-    "--link-type parent"
+    "gh", "issue", "edit",
+    issue_number,
+    "--add-linked-issue", EPICO_ID,
+    "--link-type", "parent"
   ]
 
   if DRY_RUN
-    puts cmd.join(' ')
+    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
     return
-  else
-    puts "🔹 Executando comando:"
-    puts cmd.join(' ')
   end
 
-  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
-
-  unless status.success?
-    puts "❌ Erro ao vincular ao épico: #{stderr}"
-    exit 1
-  end
+  executar_comando(cmd)
 end
 
 def processar_user_story(titulo, descricao)
@@ -117,7 +108,7 @@ def processar_user_story(titulo, descricao)
 end
 
 def processar_descricao(buffer)
-  buffer.join # respeita quebras e espaços
+  buffer.join
 end
 
 # ======= PROCESSAR ARQUIVO =======

@@ -4,9 +4,10 @@ require 'open3'
 require 'json'
 
 # ======= CONFIGURAÇÕES =======
-REPO = "sua-org/seu-repo" # <-- ajuste seu repositório
-PROJECT_ID = "PVT_abc123XYZ" # <-- ajuste seu Project ID
-EPICO_ID = "123" # <-- ajuste o número da issue do épico
+REPO = "sua-org/seu-repo"          # <-- ajuste seu repositório
+PROJECT_ID = "PVT_abc123XYZ"       # <-- ajuste seu Project ID
+OWNER = "sua-org-ou-usuario"       # <-- ajuste o owner do projeto
+EPICO_ID = "123"                   # <-- ajuste o número da issue do épico
 ARQUIVO_EPICO = ARGV[0]
 DRY_RUN = ARGV.include?('--dry-run')
 
@@ -22,9 +23,7 @@ def executar_comando(cmd_array)
   puts cmd_array.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
   puts "-----------------------------------"
 
-  if DRY_RUN
-    return
-  end
+  return if DRY_RUN
 
   stdout, stderr, status = Open3.capture3(*cmd_array)
 
@@ -37,33 +36,30 @@ def executar_comando(cmd_array)
 end
 
 def criar_issue(titulo, descricao)
-  titulo_escapado = titulo.strip.gsub('"', '\"')
-  body_escapado = descricao.gsub('"', '\"').gsub("\n", "\\n")
+  titulo_limpo = titulo.strip
 
   cmd = [
     "gh", "issue", "create",
-    "--title", titulo_escapado,
-    "--body", body_escapado,
+    "--title", titulo_limpo,
+    "--body", descricao,
     "--repo", REPO
   ]
 
-  stdout = executar_comando(cmd)
+  executar_comando(cmd)
 
-  unless DRY_RUN
-    puts stdout
-    puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
-    print "> "
-    issue_number = gets.strip
-    issue_number
-  else
-    nil
-  end
+  return nil if DRY_RUN
+
+  puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
+  print "> "
+  issue_number = gets.strip
+  issue_number
 end
 
 def adicionar_ao_projeto(issue_url)
   cmd = [
     "gh", "project", "item-add",
     PROJECT_ID,
+    "--owner", OWNER,
     "--url", issue_url
   ]
 
@@ -84,9 +80,9 @@ end
 def processar_user_story(titulo, descricao)
   issue_number = criar_issue(titulo, descricao)
 
-  if issue_number.nil? && DRY_RUN
+  if DRY_RUN
     puts "# Depois que criar a issue acima, pegue a URL e o número para seguir:"
-    puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
+    puts "gh project item-add #{PROJECT_ID} --owner #{OWNER} --url <url-da-issue>"
     puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
     puts "---"
   elsif issue_number

@@ -1,0 +1,50 @@
+import os
+import xml.etree.ElementTree as ET
+
+# Padrão a buscar
+PADRAO = "xpto"
+
+# Pasta raiz onde estão os projetos
+PASTA_RAIZ = "caminho/para/sua/estrutura"  # <- altere aqui
+
+# Função para analisar um pom.xml
+def analisar_pom(pom_path):
+    try:
+        tree = ET.parse(pom_path)
+        root = tree.getroot()
+        namespace = {'ns': 'http://maven.apache.org/POM/4.0.0'}
+
+        dependencies = root.findall('.//ns:dependency', namespace)
+        resultados = []
+
+        for dep in dependencies:
+            group_id = dep.find('ns:groupId', namespace)
+            artifact_id = dep.find('ns:artifactId', namespace)
+
+            group_id_text = group_id.text if group_id is not None else ''
+            artifact_id_text = artifact_id.text if artifact_id is not None else ''
+
+            if PADRAO in group_id_text or PADRAO in artifact_id_text:
+                resultados.append({
+                    'groupId': group_id_text,
+                    'artifactId': artifact_id_text
+                })
+
+        return resultados
+    except Exception as e:
+        print(f"Erro ao analisar {pom_path}: {e}")
+        return []
+
+# Função principal
+def main():
+    for dirpath, dirnames, filenames in os.walk(PASTA_RAIZ):
+        if 'pom.xml' in filenames:
+            pom_path = os.path.join(dirpath, 'pom.xml')
+            deps = analisar_pom(pom_path)
+            if deps:
+                print(f"\nProjeto: {dirpath}")
+                for dep in deps:
+                    print(f"  - {dep['groupId']}:{dep['artifactId']}")
+
+if __name__ == "__main__":
+    main()

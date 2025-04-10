@@ -22,7 +22,8 @@ def criar_issue(titulo, descricao)
   body_escapado = descricao.strip.gsub('"', '\"').gsub("\n", "\\n")
 
   if DRY_RUN
-    puts "gh issue create --title \"#{titulo_escapado}\" --body \"#{body_escapado}\" --repo #{REPO} --json url,number"
+    puts "gh issue create --title \"#{titulo_escapado}\" --body \"#{body_escapado}\" --repo #{REPO}"
+    puts "# Depois de criar, pegue o número da issue e continue."
     return nil
   end
 
@@ -30,8 +31,7 @@ def criar_issue(titulo, descricao)
     "gh", "issue", "create",
     "--title", titulo.strip,
     "--body", descricao,
-    "--repo", REPO,
-    "--json", "url,number"
+    "--repo", REPO
   ]
 
   stdout, stderr, status = Open3.capture3(*cmd_create)
@@ -41,8 +41,13 @@ def criar_issue(titulo, descricao)
     exit 1
   end
 
-  result = JSON.parse(stdout)
-  result
+  puts stdout
+
+  puts "👉 Informe o número da issue criada (visível no GitHub, ou pegue da saída acima):"
+  print "> "
+  issue_number = gets.strip
+
+  issue_number
 end
 
 def adicionar_ao_projeto(issue_url)
@@ -71,7 +76,7 @@ def vincular_ao_epico(issue_number)
   end
 
   cmd_link = [
-    "gh", "issue", "edit", issue_number.to_s,
+    "gh", "issue", "edit", issue_number,
     "--add-linked-issue", EPICO_ID,
     "--link-type", "parent"
   ]
@@ -85,16 +90,15 @@ def vincular_ao_epico(issue_number)
 end
 
 def processar_user_story(titulo, descricao)
-  result = criar_issue(titulo, descricao)
+  issue_number = criar_issue(titulo, descricao)
 
   if DRY_RUN
-    puts "# Depois que criar a issue acima, use a URL/ID retornados:"
+    puts "# Depois que criar a issue acima, pegue a URL e o número para seguir:"
     puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
     puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
     puts "---"
   else
-    issue_url = result["url"]
-    issue_number = result["number"]
+    issue_url = "https://github.com/#{REPO}/issues/#{issue_number}"
 
     adicionar_ao_projeto(issue_url)
     vincular_ao_epico(issue_number)
@@ -108,7 +112,6 @@ end
 # ======= PROCESSAR ARQUIVO =======
 
 current_title = nil
-current_description = ""
 buffer = []
 
 File.foreach(ARQUIVO_EPICO) do |linha|

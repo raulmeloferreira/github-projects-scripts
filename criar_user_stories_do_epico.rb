@@ -20,6 +20,20 @@ end
 def criar_issue(titulo, descricao)
   puts "🔵 Criando issue: #{titulo.strip}"
 
+  if DRY_RUN
+    body_escapado = descricao.strip.gsub('"', '\"').gsub("\n", '\\n')
+    cmd_create = [
+      "gh issue create",
+      "--title \"#{titulo.strip}\"",
+      "--body \"#{body_escapado}\"",
+      "--repo #{REPO}",
+      "--json url,number"
+    ]
+    puts "[DRY-RUN] Comando para criar issue:"
+    puts cmd_create.join(' ')
+    return
+  end
+
   cmd_create = [
     "gh", "issue", "create",
     "--title", titulo.strip,
@@ -27,12 +41,6 @@ def criar_issue(titulo, descricao)
     "--repo", REPO,
     "--json", "url,number"
   ]
-
-  if DRY_RUN
-    puts "[DRY-RUN] Comando para criar issue:"
-    puts cmd_create.join(' ')
-    return
-  end
 
   stdout, stderr, status = Open3.capture3(*cmd_create)
 
@@ -47,23 +55,28 @@ def criar_issue(titulo, descricao)
 
   puts "✅ Issue criada: #{url}"
 
-  adicionar_ao_projeto(url) unless DRY_RUN
-  vincular_ao_epico(number) unless DRY_RUN
+  adicionar_ao_projeto(url)
+  vincular_ao_epico(number)
 end
 
 def adicionar_ao_projeto(issue_url)
   puts "📋 Adicionando no projeto..."
 
-  cmd_add = [
-    "gh", "project", "item-add", PROJECT_ID,
-    "--url", issue_url
-  ]
-
   if DRY_RUN
+    cmd_add = [
+      "gh project item-add",
+      "#{PROJECT_ID}",
+      "--url #{issue_url}"
+    ]
     puts "[DRY-RUN] Comando para adicionar ao projeto:"
     puts cmd_add.join(' ')
     return
   end
+
+  cmd_add = [
+    "gh", "project", "item-add", PROJECT_ID,
+    "--url", issue_url
+  ]
 
   stdout, stderr, status = Open3.capture3(*cmd_add)
 
@@ -76,17 +89,23 @@ end
 def vincular_ao_epico(issue_number)
   puts "🔗 Vinculando ao épico..."
 
+  if DRY_RUN
+    cmd_link = [
+      "gh issue edit",
+      "#{issue_number}",
+      "--add-linked-issue #{EPICO_ID}",
+      "--link-type parent"
+    ]
+    puts "[DRY-RUN] Comando para vincular ao épico:"
+    puts cmd_link.join(' ')
+    return
+  end
+
   cmd_link = [
     "gh", "issue", "edit", issue_number.to_s,
     "--add-linked-issue", EPICO_ID,
     "--link-type", "parent"
   ]
-
-  if DRY_RUN
-    puts "[DRY-RUN] Comando para vincular ao épico:"
-    puts cmd_link.join(' ')
-    return
-  end
 
   stdout, stderr, status = Open3.capture3(*cmd_link)
 
@@ -100,22 +119,37 @@ end
 
 current_title = nil
 current_description = ""
+buffer = []
+
+def processar_descricao(buffer)
+  texto = ""
+  buffer.each do |linha|
+    if linha.strip.empty?
+      texto += "\n\n"
+    else
+      texto += linha.strip + " "
+    end
+  end
+  texto.strip
+end
 
 File.foreach(ARQUIVO_EPICO) do |linha|
   if linha.start_with?("User Story")
     if current_title
-      criar_issue(current_title, current_description)
+      descricao_final = processar_descricao(buffer)
+      criar_issue(current_title, descricao_final)
     end
     current_title = linha.chomp
-    current_description = ""
+    buffer = []
   else
-    current_description += linha
+    buffer << linha
   end
 end
 
 # Criar a última user story
 if current_title
-  criar_issue(current_title, current_description)
+  descricao_final = processar_descricao(buffer)
+  criar_issue(current_title, descricao_final)
 end
 
 puts "🏁 Todas as User Stories foram processadas!"

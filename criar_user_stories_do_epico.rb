@@ -84,15 +84,32 @@ def vincular_ao_epico(issue_number)
   end
 end
 
+def processar_user_story(titulo, descricao)
+  result = criar_issue(titulo, descricao)
+
+  if DRY_RUN
+    puts "# Depois que criar a issue acima, use a URL/ID retornados:"
+    puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
+    puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
+    puts "---"
+  else
+    issue_url = result["url"]
+    issue_number = result["number"]
+
+    adicionar_ao_projeto(issue_url)
+    vincular_ao_epico(issue_number)
+  end
+end
+
+def processar_descricao(buffer)
+  buffer.join
+end
+
 # ======= PROCESSAR ARQUIVO =======
 
 current_title = nil
 current_description = ""
 buffer = []
-
-def processar_descricao(buffer)
-  buffer.join
-end
 
 File.foreach(ARQUIVO_EPICO) do |linha|
   if linha.start_with?("User Story")
@@ -114,24 +131,3 @@ if current_title
 end
 
 puts "🏁 Todas as User Stories foram processadas!"
-
-# ======= PROCESSAR UMA USER STORY =======
-
-def processar_user_story(titulo, descricao)
-  result = criar_issue(titulo, descricao)
-
-  if DRY_RUN
-    # No dry-run, temos que simular os comandos seguintes manualmente
-    # Assumimos que o número da issue será conhecido depois da criação
-    puts "# Depois que criar a issue acima, usar o número retornado para adicionar ao projeto e vincular ao épico:"
-    puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
-    puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
-    puts "---"
-  else
-    issue_url = result["url"]
-    issue_number = result["number"]
-
-    adicionar_ao_projeto(issue_url)
-    vincular_ao_epico(issue_number)
-  end
-end

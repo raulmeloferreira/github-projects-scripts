@@ -22,6 +22,10 @@ def executar_comando(cmd_array)
   puts cmd_array.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
   puts "-----------------------------------"
 
+  if DRY_RUN
+    return
+  end
+
   stdout, stderr, status = Open3.capture3(*cmd_array)
 
   unless status.success?
@@ -43,21 +47,17 @@ def criar_issue(titulo, descricao)
     "--repo", REPO
   ]
 
-  if DRY_RUN
-    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
-    puts "# Depois de criar, pegue o número da issue e continue."
-    return nil
-  end
-
   stdout = executar_comando(cmd)
 
-  puts stdout
-
-  puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
-  print "> "
-  issue_number = gets.strip
-
-  issue_number
+  unless DRY_RUN
+    puts stdout
+    puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
+    print "> "
+    issue_number = gets.strip
+    issue_number
+  else
+    nil
+  end
 end
 
 def adicionar_ao_projeto(issue_url)
@@ -66,11 +66,6 @@ def adicionar_ao_projeto(issue_url)
     PROJECT_ID,
     "--url", issue_url
   ]
-
-  if DRY_RUN
-    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
-    return
-  end
 
   executar_comando(cmd)
 end
@@ -83,23 +78,18 @@ def vincular_ao_epico(issue_number)
     "--link-type", "parent"
   ]
 
-  if DRY_RUN
-    puts cmd.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
-    return
-  end
-
   executar_comando(cmd)
 end
 
 def processar_user_story(titulo, descricao)
   issue_number = criar_issue(titulo, descricao)
 
-  if DRY_RUN
+  if issue_number.nil? && DRY_RUN
     puts "# Depois que criar a issue acima, pegue a URL e o número para seguir:"
     puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
     puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
     puts "---"
-  else
+  elsif issue_number
     issue_url = "https://github.com/#{REPO}/issues/#{issue_number}"
 
     adicionar_ao_projeto(issue_url)

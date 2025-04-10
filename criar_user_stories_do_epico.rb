@@ -21,16 +21,11 @@ def criar_issue(titulo, descricao)
   puts "🔵 Criando issue: #{titulo.strip}"
 
   if DRY_RUN
-    body_escapado = descricao.gsub('"', '\"')
-    cmd_create = [
-      "gh issue create",
-      "--title \"#{titulo.strip}\"",
-      "--body \"#{body_escapado}\"",
-      "--repo #{REPO}",
-      "--json url,number"
-    ]
-    puts "[DRY-RUN] Comando para criar issue:"
-    puts cmd_create.join(' ')
+    puts "[DRY-RUN] Criar issue:"
+    puts "Título: \"#{titulo.strip}\""
+    puts "Body:\n#{descricao}"
+    puts "Repo: #{REPO}"
+    puts "---"
     return
   end
 
@@ -63,13 +58,10 @@ def adicionar_ao_projeto(issue_url)
   puts "📋 Adicionando no projeto..."
 
   if DRY_RUN
-    cmd_add = [
-      "gh project item-add",
-      "#{PROJECT_ID}",
-      "--url #{issue_url}"
-    ]
-    puts "[DRY-RUN] Comando para adicionar ao projeto:"
-    puts cmd_add.join(' ')
+    puts "[DRY-RUN] Adicionar ao projeto:"
+    puts "Project ID: #{PROJECT_ID}"
+    puts "Issue URL: #{issue_url}"
+    puts "---"
     return
   end
 
@@ -90,8 +82,54 @@ def vincular_ao_epico(issue_number)
   puts "🔗 Vinculando ao épico..."
 
   if DRY_RUN
-    cmd_link = [
-      "gh issue edit",
-      "#{issue_number}",
-      "--add-linked-issue #{EPICO_ID}",
-      "--
+    puts "[DRY-RUN] Vincular ao épico:"
+    puts "Issue Child: #{issue_number}"
+    puts "Parent Epic: #{EPICO_ID}"
+    puts "---"
+    return
+  end
+
+  cmd_link = [
+    "gh", "issue", "edit", issue_number.to_s,
+    "--add-linked-issue", EPICO_ID,
+    "--link-type", "parent"
+  ]
+
+  stdout, stderr, status = Open3.capture3(*cmd_link)
+
+  unless status.success?
+    puts "❌ Erro ao vincular ao épico: #{stderr}"
+    exit 1
+  end
+end
+
+# ======= PROCESSAR ARQUIVO =======
+
+current_title = nil
+current_description = ""
+buffer = []
+
+def processar_descricao(buffer)
+  buffer.join
+end
+
+File.foreach(ARQUIVO_EPICO) do |linha|
+  if linha.start_with?("User Story")
+    if current_title
+      descricao_final = processar_descricao(buffer)
+      criar_issue(current_title, descricao_final)
+    end
+    current_title = linha.chomp
+    buffer = []
+  else
+    buffer << linha
+  end
+end
+
+# Criar a última user story
+if current_title
+  descricao_final = processar_descricao(buffer)
+  criar_issue(current_title, descricao_final)
+end
+
+puts "🏁 Todas as User Stories foram processadas!"

@@ -21,7 +21,7 @@ def criar_issue(titulo, descricao)
   puts "🔵 Criando issue: #{titulo.strip}"
 
   if DRY_RUN
-    body_escapado = descricao.strip.gsub('"', '\"').gsub("\n", '\\n')
+    body_escapado = descricao.gsub('"', '\"')
     cmd_create = [
       "gh issue create",
       "--title \"#{titulo.strip}\"",
@@ -37,7 +37,7 @@ def criar_issue(titulo, descricao)
   cmd_create = [
     "gh", "issue", "create",
     "--title", titulo.strip,
-    "--body", descricao.strip,
+    "--body", descricao,
     "--repo", REPO,
     "--json", "url,number"
   ]
@@ -94,62 +94,4 @@ def vincular_ao_epico(issue_number)
       "gh issue edit",
       "#{issue_number}",
       "--add-linked-issue #{EPICO_ID}",
-      "--link-type parent"
-    ]
-    puts "[DRY-RUN] Comando para vincular ao épico:"
-    puts cmd_link.join(' ')
-    return
-  end
-
-  cmd_link = [
-    "gh", "issue", "edit", issue_number.to_s,
-    "--add-linked-issue", EPICO_ID,
-    "--link-type", "parent"
-  ]
-
-  stdout, stderr, status = Open3.capture3(*cmd_link)
-
-  unless status.success?
-    puts "❌ Erro ao vincular ao épico: #{stderr}"
-    exit 1
-  end
-end
-
-# ======= PROCESSAR ARQUIVO =======
-
-current_title = nil
-current_description = ""
-buffer = []
-
-def processar_descricao(buffer)
-  texto = ""
-  buffer.each do |linha|
-    if linha.strip.empty?
-      texto += "\n\n"
-    else
-      texto += linha.strip + " "
-    end
-  end
-  texto.strip
-end
-
-File.foreach(ARQUIVO_EPICO) do |linha|
-  if linha.start_with?("User Story")
-    if current_title
-      descricao_final = processar_descricao(buffer)
-      criar_issue(current_title, descricao_final)
-    end
-    current_title = linha.chomp
-    buffer = []
-  else
-    buffer << linha
-  end
-end
-
-# Criar a última user story
-if current_title
-  descricao_final = processar_descricao(buffer)
-  criar_issue(current_title, descricao_final)
-end
-
-puts "🏁 Todas as User Stories foram processadas!"
+      "--

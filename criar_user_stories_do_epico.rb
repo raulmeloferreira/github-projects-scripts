@@ -19,22 +19,25 @@ end
 
 def criar_issue(titulo, descricao)
   titulo_escapado = titulo.strip.gsub('"', '\"')
-  body_escapado = descricao.strip.gsub('"', '\"').gsub("\n", "\\n")
+  body_escapado = descricao.gsub('"', '\"').gsub("\n", "\\n") # sem strip no body
 
-  if DRY_RUN
-    puts "gh issue create --title \"#{titulo_escapado}\" --body \"#{body_escapado}\" --repo #{REPO}"
-    puts "# Depois de criar, pegue o número da issue e continue."
-    return nil
-  end
-
-  cmd_create = [
-    "gh", "issue", "create",
-    "--title", titulo.strip,
-    "--body", descricao,
-    "--repo", REPO
+  cmd = [
+    "gh issue create",
+    "--title \"#{titulo_escapado}\"",
+    "--body \"#{body_escapado}\"",
+    "--repo #{REPO}"
   ]
 
-  stdout, stderr, status = Open3.capture3(*cmd_create)
+  if DRY_RUN
+    puts cmd.join(' ')
+    puts "# Depois de criar, pegue o número da issue e continue."
+    return nil
+  else
+    puts "🔹 Executando comando:"
+    puts cmd.join(' ')
+  end
+
+  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
 
   unless status.success?
     puts "❌ Erro ao criar issue: #{stderr}"
@@ -43,7 +46,7 @@ def criar_issue(titulo, descricao)
 
   puts stdout
 
-  puts "👉 Informe o número da issue criada (visível no GitHub, ou pegue da saída acima):"
+  puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
   print "> "
   issue_number = gets.strip
 
@@ -51,17 +54,21 @@ def criar_issue(titulo, descricao)
 end
 
 def adicionar_ao_projeto(issue_url)
-  if DRY_RUN
-    puts "gh project item-add #{PROJECT_ID} --url #{issue_url}"
-    return
-  end
-
-  cmd_add = [
-    "gh", "project", "item-add", PROJECT_ID,
-    "--url", issue_url
+  cmd = [
+    "gh project item-add",
+    "#{PROJECT_ID}",
+    "--url #{issue_url}"
   ]
 
-  stdout, stderr, status = Open3.capture3(*cmd_add)
+  if DRY_RUN
+    puts cmd.join(' ')
+    return
+  else
+    puts "🔹 Executando comando:"
+    puts cmd.join(' ')
+  end
+
+  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
 
   unless status.success?
     puts "❌ Erro ao adicionar no projeto: #{stderr}"
@@ -70,18 +77,22 @@ def adicionar_ao_projeto(issue_url)
 end
 
 def vincular_ao_epico(issue_number)
-  if DRY_RUN
-    puts "gh issue edit #{issue_number} --add-linked-issue #{EPICO_ID} --link-type parent"
-    return
-  end
-
-  cmd_link = [
-    "gh", "issue", "edit", issue_number,
-    "--add-linked-issue", EPICO_ID,
-    "--link-type", "parent"
+  cmd = [
+    "gh issue edit",
+    "#{issue_number}",
+    "--add-linked-issue #{EPICO_ID}",
+    "--link-type parent"
   ]
 
-  stdout, stderr, status = Open3.capture3(*cmd_link)
+  if DRY_RUN
+    puts cmd.join(' ')
+    return
+  else
+    puts "🔹 Executando comando:"
+    puts cmd.join(' ')
+  end
+
+  stdout, stderr, status = Open3.capture3(*cmd.join(' '))
 
   unless status.success?
     puts "❌ Erro ao vincular ao épico: #{stderr}"
@@ -106,7 +117,7 @@ def processar_user_story(titulo, descricao)
 end
 
 def processar_descricao(buffer)
-  buffer.join
+  buffer.join # respeita quebras e espaços
 end
 
 # ======= PROCESSAR ARQUIVO =======

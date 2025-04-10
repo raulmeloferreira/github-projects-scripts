@@ -38,21 +38,39 @@ end
 def criar_issue(titulo, descricao)
   titulo_limpo = titulo.strip
 
-  cmd = [
+  cmd_create = [
     "gh", "issue", "create",
     "--title", titulo_limpo,
     "--body", descricao,
     "--repo", REPO
   ]
 
-  executar_comando(cmd)
+  executar_comando(cmd_create)
 
   return nil if DRY_RUN
 
-  puts "👉 Informe o número da issue criada (visível no GitHub, ou na saída acima):"
-  print "> "
-  issue_number = gets.strip
-  issue_number
+  # Depois de criar, pegar a última issue criada pelo usuário no repositório
+  cmd_view = [
+    "gh", "issue", "list",
+    "--repo", REPO,
+    "--author", "@me",
+    "--state", "open",
+    "--limit", "1",
+    "--json", "url,number",
+    "--sort", "created",
+    "--direction", "desc"
+  ]
+
+  output = executar_comando(cmd_view)
+  data = JSON.parse(output)
+  issue_info = data.first
+
+  unless issue_info
+    puts "❌ Não foi possível capturar a issue criada."
+    exit 1
+  end
+
+  issue_info
 end
 
 def adicionar_ao_projeto(issue_url)
@@ -69,7 +87,7 @@ end
 def vincular_ao_epico(issue_number)
   cmd = [
     "gh", "issue", "edit",
-    issue_number,
+    issue_number.to_s,
     "--add-linked-issue", EPICO_ID,
     "--link-type", "parent"
   ]
@@ -78,15 +96,16 @@ def vincular_ao_epico(issue_number)
 end
 
 def processar_user_story(titulo, descricao)
-  issue_number = criar_issue(titulo, descricao)
+  issue_info = criar_issue(titulo, descricao)
 
   if DRY_RUN
     puts "# Depois que criar a issue acima, pegue a URL e o número para seguir:"
     puts "gh project item-add #{PROJECT_ID} --owner #{OWNER} --url <url-da-issue>"
     puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
     puts "---"
-  elsif issue_number
-    issue_url = "https://github.com/#{REPO}/issues/#{issue_number}"
+  elsif issue_info
+    issue_url = issue_info["url"]
+    issue_number = issue_info["number"]
 
     adicionar_ao_projeto(issue_url)
     vincular_ao_epico(issue_number)

@@ -23,7 +23,7 @@ def executar_comando(cmd_array)
   puts cmd_array.map { |c| c.include?(' ') ? "\"#{c}\"" : c }.join(' ')
   puts "-----------------------------------"
 
-  return if DRY_RUN
+  return "" if DRY_RUN
 
   stdout, stderr, status = Open3.capture3(*cmd_array)
 
@@ -32,7 +32,7 @@ def executar_comando(cmd_array)
     exit 1
   end
 
-  stdout
+  stdout.strip
 end
 
 def criar_issue(titulo, descricao)
@@ -45,32 +45,18 @@ def criar_issue(titulo, descricao)
     "--repo", REPO
   ]
 
-  executar_comando(cmd_create)
+  url_da_issue = executar_comando(cmd_create)
 
   return nil if DRY_RUN
 
-  # Depois de criar, pegar a última issue criada pelo usuário no repositório
-  cmd_view = [
-    "gh", "issue", "list",
-    "--repo", REPO,
-    "--author", "@me",
-    "--state", "open",
-    "--limit", "1",
-    "--json", "url,number",
-    "--sort", "created",
-    "--direction", "desc"
-  ]
-
-  output = executar_comando(cmd_view)
-  data = JSON.parse(output)
-  issue_info = data.first
-
-  unless issue_info
-    puts "❌ Não foi possível capturar a issue criada."
+  # Agora, da URL extraímos o número da issue
+  if url_da_issue =~ %r{issues/(\d+)}
+    issue_number = $1
+    { "url" => url_da_issue, "number" => issue_number }
+  else
+    puts "❌ Não foi possível extrair o número da issue da URL: #{url_da_issue}"
     exit 1
   end
-
-  issue_info
 end
 
 def adicionar_ao_projeto(issue_url)

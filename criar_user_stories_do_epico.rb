@@ -18,20 +18,12 @@ end
 # ======= FUNÇÕES =======
 
 def criar_issue(titulo, descricao)
+  titulo_escapado = titulo.strip.gsub('"', '\"')
+  body_escapado = descricao.strip.gsub('"', '\"').gsub("\n", "\\n")
+
   if DRY_RUN
-    body_escapado = descricao.gsub('"', '\"').gsub("\n", "\\n")
-    titulo_escapado = titulo.strip.gsub('"', '\"')
-
-    cmd = [
-      "gh issue create",
-      "--title \"#{titulo_escapado}\"",
-      "--body \"#{body_escapado}\"",
-      "--repo #{REPO}",
-      "--json url,number"
-    ]
-
-    puts cmd.join(' ')
-    return
+    puts "gh issue create --title \"#{titulo_escapado}\" --body \"#{body_escapado}\" --repo #{REPO} --json url,number"
+    return nil
   end
 
   cmd_create = [
@@ -50,23 +42,12 @@ def criar_issue(titulo, descricao)
   end
 
   result = JSON.parse(stdout)
-  url = result["url"]
-  number = result["number"]
-
-  puts "✅ Issue criada: #{url}"
-
-  adicionar_ao_projeto(url)
-  vincular_ao_epico(number)
+  result
 end
 
 def adicionar_ao_projeto(issue_url)
   if DRY_RUN
-    cmd_add = [
-      "gh project item-add",
-      "#{PROJECT_ID}",
-      "--url #{issue_url}"
-    ]
-    puts cmd_add.join(' ')
+    puts "gh project item-add #{PROJECT_ID} --url #{issue_url}"
     return
   end
 
@@ -85,13 +66,7 @@ end
 
 def vincular_ao_epico(issue_number)
   if DRY_RUN
-    cmd_link = [
-      "gh issue edit",
-      "#{issue_number}",
-      "--add-linked-issue #{EPICO_ID}",
-      "--link-type parent"
-    ]
-    puts cmd_link.join(' ')
+    puts "gh issue edit #{issue_number} --add-linked-issue #{EPICO_ID} --link-type parent"
     return
   end
 
@@ -123,7 +98,7 @@ File.foreach(ARQUIVO_EPICO) do |linha|
   if linha.start_with?("User Story")
     if current_title
       descricao_final = processar_descricao(buffer)
-      criar_issue(current_title, descricao_final)
+      processar_user_story(current_title, descricao_final)
     end
     current_title = linha.chomp
     buffer = []
@@ -135,7 +110,28 @@ end
 # Criar a última user story
 if current_title
   descricao_final = processar_descricao(buffer)
-  criar_issue(current_title, descricao_final)
+  processar_user_story(current_title, descricao_final)
 end
 
 puts "🏁 Todas as User Stories foram processadas!"
+
+# ======= PROCESSAR UMA USER STORY =======
+
+def processar_user_story(titulo, descricao)
+  result = criar_issue(titulo, descricao)
+
+  if DRY_RUN
+    # No dry-run, temos que simular os comandos seguintes manualmente
+    # Assumimos que o número da issue será conhecido depois da criação
+    puts "# Depois que criar a issue acima, usar o número retornado para adicionar ao projeto e vincular ao épico:"
+    puts "gh project item-add #{PROJECT_ID} --url <url-da-issue>"
+    puts "gh issue edit <numero-da-issue> --add-linked-issue #{EPICO_ID} --link-type parent"
+    puts "---"
+  else
+    issue_url = result["url"]
+    issue_number = result["number"]
+
+    adicionar_ao_projeto(issue_url)
+    vincular_ao_epico(issue_number)
+  end
+end
